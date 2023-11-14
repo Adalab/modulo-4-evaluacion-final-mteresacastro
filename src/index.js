@@ -65,7 +65,7 @@ app.get("/moviesghibli/:id", async (req, res) => {
   }
 
   //Select a la bases de datos con un id
-  let query = 'SELECT * FROM moviesghibli, postersghibli WHERE postersghibli.fk_movieposters = moviesghibli.id and id = ?;';
+  let query = 'SELECT * FROM moviesghibli LEFT JOIN postersghibli ON moviesghibli.id = postersghibli.fk_movieposters WHERE moviesghibli.id = ?;';
 
   //hacer la conexión con la BD
   const conn = await getConnection();
@@ -84,21 +84,21 @@ app.get("/moviesghibli/:id", async (req, res) => {
 
   //Enviar una respuesta
   res.json({
-    results: results[0], // listado
+    results: results[0] 
   });
 });
 
 //Crear una nueva receta (POST /recetas)
 app.post("/moviesghibli", async (req, res) => {
   const dataMovie = req.body; //objeto
-  const { nombre, año, director, descripcion } = dataMovie;
+  const { nombre, anio, director, descripcion } = dataMovie;
   const dataPoster = req.body;
-  const {poster, fk_movieposters} = dataPoster;
+  const {poster} = dataPoster;
 
   //Validaciones
   //Validar que viene el nombre, ingredientes y las instrucciones -- res.json(error)
 
-  let sql = "INSERT INTO moviesghibli (nombre, año, director, descripcion) VALUES (?, ?, ?, ?);";
+  let sql = "INSERT INTO moviesghibli (nombre, anio, director, descripcion) VALUES (?, ?, ?, ?);";
   let sql2 = "INSERT INTO postersghibli (poster, fk_movieposters) VALUES (?, ?);";
   try {
     //hacer la conexión con la BD
@@ -107,7 +107,7 @@ app.post("/moviesghibli", async (req, res) => {
     //Ejecutar esa consulta
     const [results] = await conn.query(sql, [
       nombre,
-      año,
+      anio,
       director,
       descripcion
     ]);
@@ -147,14 +147,17 @@ app.post("/moviesghibli", async (req, res) => {
 app.put("/moviesghibli/:id", async (req, res) => {
   //Obtener los valores del req.body
   const dataMovie = req.body; //objeto
-  const { nombre, año, director, descripcion } = dataMovie;
+  const { nombre, anio, director, descripcion } = dataMovie;
+  const dataPoster = req.body;
+  const {poster} = dataPoster;
 
   //Obtener el id del req.params
   const idMovie = req.params.id;
 
   //buscar si este id existe en mi bd
 
-  let sql = "UPDATE moviesghibli SET  nombre =? , año = ?, director =?, descripcion=? WHERE id = ?";
+  let sql = "UPDATE moviesghibli JOIN postersghibli ON moviesghibli.id = postersghibli.fk_movieposters SET moviesghibli.nombre = ?, moviesghibli.anio = ?, moviesghibli.director = ?, moviesghibli.descripcion= ?, postersghibli.poster = ? WHERE id = ?;";
+ 
 
   //hacer la conexión con la BD
   const conn = await getConnection();
@@ -162,11 +165,11 @@ app.put("/moviesghibli/:id", async (req, res) => {
   //Ejecutar esa consulta
   const [results] = await conn.query(sql, [
     nombre,
-    año,
+    anio,
     director,
-    descripcion
+    descripcion,
+    poster
   ]);
-
 
   res.json({
     success: true,
