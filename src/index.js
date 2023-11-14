@@ -14,12 +14,12 @@ app.use(express.json());
 
 //conexión a la bases de datos
 async function getConnection() {
-  //creary configurar la conexion
+  //crear y configurar la conexion
   const connection = await mysql.createConnection({
     host: "localhost",
     user: "root",
-    password: "",
-    database: "recetas_db",
+    password: "ffuunnaaii",
+    database: "ghibli",
   });
 
   connection.connect();
@@ -33,9 +33,9 @@ app.listen(port, () => {
 
 //Endpoints
 //Obtener todas las recetas (GET /recetas)
-app.get("/recetas", async (req, res) => {
+app.get("/moviesghibli", async (req, res) => {
   //Select a la bases de datos
-  let query = "SELECT * FROM recetas";
+  let query = "SELECT * FROM moviesghibli JOIN postersghibli ON moviesghibli.id = postersghibli.fk_movieposters;"
 
   //hacer la conexión con la BD
   const conn = await getConnection();
@@ -52,11 +52,11 @@ app.get("/recetas", async (req, res) => {
 });
 
 //Obtener una receta por su ID (GET /recetas/:id).
-app.get("/recetas/:id", async (req, res) => {
+app.get("/moviesghibli/:id", async (req, res) => {
   //Obtener el id: url params
-  const idReceta = req.params.id;
+  const idMovie = req.params.id;
 
-  if (isNaN(parseInt(idReceta))) {
+  if (isNaN(parseInt(idMovie))) {
     res.json({
       success: false,
       error: "El id debe ser un número",
@@ -65,19 +65,19 @@ app.get("/recetas/:id", async (req, res) => {
   }
 
   //Select a la bases de datos con un id
-  let query = "SELECT * FROM recetas WHERE id = ?";
+  let query = 'SELECT * FROM moviesghibli, postersghibli WHERE postersghibli.fk_movieposters = moviesghibli.id and id = ?;';
 
   //hacer la conexión con la BD
   const conn = await getConnection();
 
   //Ejecutar esa consulta
-  const [results] = await conn.query(query, [idReceta]);
+  const [results] = await conn.query(query, [idMovie]);
   const numOfElements = results.length;
 
   if (numOfElements === 0) {
     res.json({
       success: true,
-      message: "No existe la receta que buscas",
+      message: "No existe la película de estudios ghibli que buscas en nuestros datos",
     });
     return;
   }
@@ -89,16 +89,17 @@ app.get("/recetas/:id", async (req, res) => {
 });
 
 //Crear una nueva receta (POST /recetas)
-app.post("/recetas", async (req, res) => {
-  const dataReceta = req.body; //objeto
-  const { nombre, ingredientes, instrucciones } = dataReceta;
+app.post("/moviesghibli", async (req, res) => {
+  const dataMovie = req.body; //objeto
+  const { nombre, año, director, descripcion } = dataMovie;
+  const dataPoster = req.body;
+  const {poster, fk_movieposters} = dataPoster;
 
   //Validaciones
   //Validar que viene el nombre, ingredientes y las instrucciones -- res.json(error)
 
-  let sql =
-    "INSERT INTO recetas(nombre, ingredientes, instrucciones) VALUES (?, ?, ?);";
-
+  let sql = "INSERT INTO moviesghibli (nombre, año, director, descripcion) VALUES (?, ?, ?, ?);";
+  let sql2 = "INSERT INTO postersghibli (poster, fk_movieposters) VALUES (?, ?);";
   try {
     //hacer la conexión con la BD
     const conn = await getConnection();
@@ -106,8 +107,14 @@ app.post("/recetas", async (req, res) => {
     //Ejecutar esa consulta
     const [results] = await conn.query(sql, [
       nombre,
-      ingredientes,
-      instrucciones,
+      año,
+      director,
+      descripcion
+    ]);
+
+    const [results2] = await conn.query(sql2, [
+      poster,
+      results.insertId
     ]);
 
     // Valida si la receta ya existe, o está duplicada
@@ -122,7 +129,9 @@ app.post("/recetas", async (req, res) => {
 
     res.json({
       success: true,
-      id: results.insertId, // id que generó MySQL para la nueva fila
+      idMovie: results.insertId, 
+      idPoster: results2.insertId,
+      message: "La película se ha insertado correctamente"// id que generó MySQL para la nueva fila
     });
   } catch (error) {
     res.json({
@@ -135,18 +144,17 @@ app.post("/recetas", async (req, res) => {
 //Actualizar una receta existente (PUT /recetas/:id)
 //id: url params
 //info actualizar: Body params
-app.put("/recetas/:id", async (req, res) => {
+app.put("/moviesghibli/:id", async (req, res) => {
   //Obtener los valores del req.body
-  const dataReceta = req.body; //objeto
-  const { nombre, ingredientes, instrucciones } = dataReceta;
+  const dataMovie = req.body; //objeto
+  const { nombre, año, director, descripcion } = dataMovie;
 
   //Obtener el id del req.params
-  const idReceta = req.params.id;
+  const idMovie = req.params.id;
 
   //buscar si este id existe en mi bd
 
-  let sql =
-    "UPDATE recetas SET  nombre =? , ingredientes = ?, instrucciones =? WHERE id = ?";
+  let sql = "UPDATE moviesghibli SET  nombre =? , año = ?, director =?, descripcion=? WHERE id = ?";
 
   //hacer la conexión con la BD
   const conn = await getConnection();
@@ -154,22 +162,23 @@ app.put("/recetas/:id", async (req, res) => {
   //Ejecutar esa consulta
   const [results] = await conn.query(sql, [
     nombre,
-    ingredientes,
-    instrucciones,
-    idReceta,
+    año,
+    director,
+    descripcion
   ]);
+
 
   res.json({
     success: true,
-    message: "Actualizado correctamente",
+    message: "Datos actualizados correctamente",
   });
 });
 
 //Eliminar una receta (DELETE /recetas/:id)
 //id: url params
-app.delete("/recetas/:id", async (req, res) => {
+app.delete("/moviesghibli/:id", async (req, res) => {
   //Obtener el id del req.params
-  const idReceta = req.params.id;
+  const idMovie = req.params.id;
 
   //buscar si este id existe en mi bd
   //Puedo hacer un select a la BD si exste hago el delete
@@ -181,10 +190,10 @@ app.delete("/recetas/:id", async (req, res) => {
   const conn = await getConnection();
 
   //Ejecutar esa consulta
-  const [results] = await conn.query(sql, [idReceta]);
+  const [results] = await conn.query(sql, [idMovie]);
 
   res.json({
     success: true,
-    message: "Eliminado correctamente",
+    message: "Película eliminada correctamente",
   });
 });
