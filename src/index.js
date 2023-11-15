@@ -3,6 +3,8 @@
 const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2/promise");
+require('dotenv').config();
+
 
 const app = express();
 
@@ -14,9 +16,10 @@ async function getConnection() {
   const connection = await mysql.createConnection({
     host: "localhost",
     user: "root",
-    password: "ffuunnaaii",
+    password: process.env.DB_PASSWORD,
     database: "ghibli",
   });
+  
 
   connection.connect();
   return connection;
