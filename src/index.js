@@ -39,6 +39,7 @@ app.get("/moviesghibli", async (req, res) => {
   const numOfElements = results.length;
 
   res.json({
+    success: true,
     info: { count: numOfElements },
     results: results
   });
@@ -73,6 +74,7 @@ app.get("/moviesghibli/:id", async (req, res) => {
   }
 
   res.json({
+    success: true,
     results: results[0] 
   });
 });
@@ -197,7 +199,7 @@ app.put("/moviesghibli/:id", async (req, res) => {
 
   res.json({
     success: true,
-    message: "Datos actualizados correctamente",
+    message: "Datos actualizados correctamente"
   });
 });
 
