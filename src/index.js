@@ -1,20 +1,16 @@
-//imports
+// Importar y crear la conexion
 
 const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2/promise");
 
-//arrancar el servidor
 const app = express();
-
-//configurar
 
 app.use(cors());
 app.use(express.json());
 
-//conexión a la bases de datos
+
 async function getConnection() {
-  //crear y configurar la conexion
   const connection = await mysql.createConnection({
     host: "localhost",
     user: "root",
@@ -32,28 +28,25 @@ app.listen(port, () => {
 });
 
 //Endpoints
-//Obtener todas las recetas (GET /recetas)
+
+//Consultar todas las películas.
 app.get("/moviesghibli", async (req, res) => {
-  //Select a la bases de datos
   let query = "SELECT * FROM moviesghibli JOIN postersghibli ON moviesghibli.id = postersghibli.fk_movieposters;"
 
-  //hacer la conexión con la BD
   const conn = await getConnection();
 
-  //Ejecutar esa consulta
   const [results] = await conn.query(query);
   const numOfElements = results.length;
 
-  //Enviar una respuesta
   res.json({
-    info: { count: numOfElements }, // número de elementos
-    results: results, // listado
+    info: { count: numOfElements },
+    results: results
   });
 });
 
-//Obtener una receta por su ID (GET /recetas/:id).
+//Obtener una pelicula por su ID.
 app.get("/moviesghibli/:id", async (req, res) => {
-  //Obtener el id: url params
+
   const idMovie = req.params.id;
 
   if (isNaN(parseInt(idMovie))) {
@@ -64,13 +57,10 @@ app.get("/moviesghibli/:id", async (req, res) => {
     return;
   }
 
-  //Select a la bases de datos con un id
   let query = 'SELECT * FROM moviesghibli LEFT JOIN postersghibli ON moviesghibli.id = postersghibli.fk_movieposters WHERE moviesghibli.id = ?;';
 
-  //hacer la conexión con la BD
   const conn = await getConnection();
 
-  //Ejecutar esa consulta
   const [results] = await conn.query(query, [idMovie]);
   const numOfElements = results.length;
 
@@ -82,43 +72,65 @@ app.get("/moviesghibli/:id", async (req, res) => {
     return;
   }
 
-  //Enviar una respuesta
   res.json({
     results: results[0] 
   });
 });
 
-//Crear una nueva receta (POST /recetas)
+//Crear una nueva pelicula.
 app.post("/moviesghibli", async (req, res) => {
-  const dataMovie = req.body; //objeto
+  const dataMovie = req.body; 
   const { nombre, anio, director, descripcion } = dataMovie;
   const dataPoster = req.body;
   const {poster} = dataPoster;
 
-  //Validaciones
-  //Validar que viene el nombre, ingredientes y las instrucciones -- res.json(error)
+  let sqlSelect = "SELECT * FROM moviesghibli WHERE nombre = ? AND anio = ? AND director = ? AND descripcion = ?;";
 
-  let sql = "INSERT INTO moviesghibli (nombre, anio, director, descripcion) VALUES (?, ?, ?, ?);";
-  let sql2 = "INSERT INTO postersghibli (poster, fk_movieposters) VALUES (?, ?);";
+  const conn = await getConnection();
+
+  const [results] = await conn.query(sqlSelect, [
+    nombre,
+    anio,
+    director,
+    descripcion
+  ]);
+
+  if (results.length > 0) {
+    res.json({
+      success: false,
+      error: "La película ya existe en la base de datos",
+    });
+    return;
+  }
+
+  const currentYear = new Date().getFullYear(); //Para obtener el año actual y guardarlo en una variable
+
+  if (isNaN(parseInt(anio)) || parseInt(anio) < 1900 || parseInt(anio) > currentYear) {
+    res.json({
+      success: false,
+      error: "El año debe ser un número entero entre 1900 y " + currentYear,
+    });
+    return;
+  }
+
+  let sqlInsertMovie = "INSERT INTO moviesghibli (nombre, anio, director, descripcion) VALUES (?, ?, ?, ?);";
+  let sqlInsertPoster = "INSERT INTO postersghibli (poster, fk_movieposters) VALUES (?, ?);";
+ 
   try {
-    //hacer la conexión con la BD
     const conn = await getConnection();
 
-    //Ejecutar esa consulta
-    const [results] = await conn.query(sql, [
+    const [results] = await conn.query(sqlInsertMovie, [
       nombre,
       anio,
       director,
       descripcion
     ]);
 
-    const [results2] = await conn.query(sql2, [
+    const [results2] = await conn.query(sqlInsertPoster, [
       poster,
       results.insertId
     ]);
 
-    // Valida si la receta ya existe, o está duplicada
-    //validar si se ha insertado o no
     if (results.affectedRows === 0) {
       res.json({
         success: false,
@@ -131,7 +143,7 @@ app.post("/moviesghibli", async (req, res) => {
       success: true,
       idMovie: results.insertId, 
       idPoster: results2.insertId,
-      message: "La película se ha insertado correctamente"// id que generó MySQL para la nueva fila
+      message: "La película se ha insertado correctamente"
     });
   } catch (error) {
     res.json({
@@ -141,34 +153,46 @@ app.post("/moviesghibli", async (req, res) => {
   }
 });
 
-//Actualizar una receta existente (PUT /recetas/:id)
-//id: url params
-//info actualizar: Body params
+//Actualizar datos de peliculas
 app.put("/moviesghibli/:id", async (req, res) => {
-  //Obtener los valores del req.body
-  const dataMovie = req.body; //objeto
+  const dataMovie = req.body; 
   const { nombre, anio, director, descripcion } = dataMovie;
   const dataPoster = req.body;
   const {poster} = dataPoster;
 
-  //Obtener el id del req.params
   const idMovie = req.params.id;
 
-  //buscar si este id existe en mi bd
+  if (isNaN(parseInt(idMovie))) {
+    res.json({
+      success: false,
+      error: "El id debe ser un número",
+    });
+    return;
+  }
 
-  let sql = "UPDATE moviesghibli JOIN postersghibli ON moviesghibli.id = postersghibli.fk_movieposters SET moviesghibli.nombre = ?, moviesghibli.anio = ?, moviesghibli.director = ?, moviesghibli.descripcion= ?, postersghibli.poster = ? WHERE id = ?;";
- 
+  let sqlSelectMovie = "SELECT * FROM moviesghibli WHERE id = ?;";
 
-  //hacer la conexión con la BD
   const conn = await getConnection();
 
-  //Ejecutar esa consulta
-  const [results] = await conn.query(sql, [
+  const [resultsId] = await conn.query(sqlSelectMovie, [idMovie]);
+
+  if (resultsId.length === 0) {
+    res.json({
+      success: false,
+      error: "El id no existe en la base de datos",
+    });
+    return;
+  }
+
+  let sqlUpdate = "UPDATE moviesghibli JOIN postersghibli ON moviesghibli.id = postersghibli.fk_movieposters SET moviesghibli.nombre = ?, moviesghibli.anio = ?, moviesghibli.director = ?, moviesghibli.descripcion= ?, postersghibli.poster = ? WHERE id = ?;";
+ 
+  const [results] = await conn.query(sqlUpdate, [
     nombre,
     anio,
     director,
     descripcion,
-    poster
+    poster,
+    idMovie
   ]);
 
   res.json({
@@ -177,26 +201,40 @@ app.put("/moviesghibli/:id", async (req, res) => {
   });
 });
 
-//Eliminar una receta (DELETE /recetas/:id)
-//id: url params
+//Eliminar una pelicula
 app.delete("/moviesghibli/:id", async (req, res) => {
-  //Obtener el id del req.params
+  
   const idMovie = req.params.id;
 
-  //buscar si este id existe en mi bd
-  //Puedo hacer un select a la BD si exste hago el delete
-  //Sino existe envio una res.json(error)
+  let sqlSelectMovie = "SELECT * FROM postersghibli WHERE postersghibli.fk_movieposters = ?;";
+  let sqlSelectPoster = "SELECT * FROM moviesghibli WHERE moviesghibli.id = ?;"
+  let sqlDeleteMovie = "DELETE FROM postersghibli WHERE postersghibli.fk_movieposters = ?;";
+  let sqlDeletePoster = "DELETE FROM moviesghibli WHERE moviesghibli.id = ?;"
 
-  let sql = "DELETE FROM recetas WHERE id = ? ";
-
-  //hacer la conexión con la BD
   const conn = await getConnection();
 
-  //Ejecutar esa consulta
-  const [results] = await conn.query(sql, [idMovie]);
+  const [results] = await conn.query(sqlSelectMovie, [idMovie]);
+  const [results2] = await conn.query(sqlSelectPoster, [idMovie]);
+  
+  if (results.length === 0 || results2.length === 0) {
+    res.json({
+      success: false,
+      error: "El id no existe en la base de datos",
+    });
+    return;
+  }
 
+  const deletedData = {
+    movie: results2[0],
+    poster: results[0]
+  };
+
+  await conn.query(sqlDeleteMovie, [idMovie]);
+  await conn.query(sqlDeletePoster, [idMovie]);
+  
   res.json({
     success: true,
-    message: "Película eliminada correctamente",
+    message: `Los siguientes datos se han borrado corretamente`,
+    deletedData: deletedData
   });
 });
